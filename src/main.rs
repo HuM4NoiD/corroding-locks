@@ -1,4 +1,5 @@
 use std::env;
+pub mod ast;
 pub mod error;
 pub mod lox;
 pub mod scanner;

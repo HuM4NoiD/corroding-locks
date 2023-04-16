@@ -39,42 +39,42 @@ impl Scanner {
     fn scan_token(&mut self) {
         let character = self.advance();
         match character {
-            '(' => self.add_token(TokenType::LEFT_PAREN),
-            ')' => self.add_token(TokenType::RIGHT_PAREN),
-            '{' => self.add_token(TokenType::LEFT_BRACE),
-            '}' => self.add_token(TokenType::RIGHT_BRACE),
-            ',' => self.add_token(TokenType::COMMA),
-            '.' => self.add_token(TokenType::DOT),
-            ';' => self.add_token(TokenType::SEMICOLON),
-            '-' => self.add_token(TokenType::MINUS),
-            '+' => self.add_token(TokenType::PLUS),
-            '*' => self.add_token(TokenType::STAR),
+            '(' => self.add_token(TokenType::LeftParen),
+            ')' => self.add_token(TokenType::RightParen),
+            '{' => self.add_token(TokenType::LeftBrace),
+            '}' => self.add_token(TokenType::RightBrace),
+            ',' => self.add_token(TokenType::Comma),
+            '.' => self.add_token(TokenType::Dot),
+            ';' => self.add_token(TokenType::Semicolon),
+            '-' => self.add_token(TokenType::Minus),
+            '+' => self.add_token(TokenType::Plus),
+            '*' => self.add_token(TokenType::Star),
             '!' => {
                 if self.match_('=') {
-                    self.add_token(TokenType::BANG_EQUAL)
+                    self.add_token(TokenType::BangEqual)
                 } else {
-                    self.add_token(TokenType::BANG)
+                    self.add_token(TokenType::Bang)
                 }
             }
             '=' => {
                 if self.match_('=') {
-                    self.add_token(TokenType::EQUAL_EQUAL)
+                    self.add_token(TokenType::EqualEqual)
                 } else {
-                    self.add_token(TokenType::EQUAL)
+                    self.add_token(TokenType::Equal)
                 }
             }
             '<' => {
                 if self.match_('=') {
-                    self.add_token(TokenType::LESS_EQUAL)
+                    self.add_token(TokenType::LessEqual)
                 } else {
-                    self.add_token(TokenType::LESS)
+                    self.add_token(TokenType::Less)
                 }
             }
             '>' => {
                 if self.match_('=') {
-                    self.add_token(TokenType::GREATER_EQUAL)
+                    self.add_token(TokenType::GreaterEqual)
                 } else {
-                    self.add_token(TokenType::GREATER)
+                    self.add_token(TokenType::Greater)
                 }
             }
             '/' => {
@@ -85,7 +85,7 @@ impl Scanner {
                 } else if self.match_('*') {
                     self.multiline_comment();
                 } else {
-                    self.add_token(TokenType::SLASH)
+                    self.add_token(TokenType::Slash)
                 }
             }
             ' ' | '\r' | '\t' => {}
@@ -151,7 +151,7 @@ impl Scanner {
         self.advance();
         let slice = &self.source[self.start + 1..self.current + 1];
         let value = Some(Value::String(slice.into_iter().collect()));
-        self.add_token_value(TokenType::STRING, value)
+        self.add_token_value(TokenType::String, value)
     }
 
     fn number(&mut self) {
@@ -169,7 +169,7 @@ impl Scanner {
         let slice = &self.source[self.start..self.current];
         let num_str: String = slice.into_iter().collect();
         let num_val = Some(Value::Number(num_str.parse::<f64>().unwrap()));
-        self.add_token_value(TokenType::NUMBER, num_val)
+        self.add_token_value(TokenType::Number, num_val)
     }
 
     fn identifier(&mut self) {
@@ -177,7 +177,7 @@ impl Scanner {
             self.advance();
         }
 
-        self.add_token(TokenType::IDENTIFIER);
+        self.add_token(TokenType::Identifier);
     }
 
     fn multiline_comment(&mut self) {
