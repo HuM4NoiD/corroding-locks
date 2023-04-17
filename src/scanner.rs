@@ -1,80 +1,80 @@
 use crate::{
-    error::error_line,
+    error::{error_line, report_err, Error},
     token::{Token, TokenType},
     value::Value,
 };
+use std::{iter::Iterator};
 
 pub struct Scanner {
     source: Vec<char>,
-    tokens: Vec<Token>,
     start: usize,
     current: usize,
-    line: i32,
+    line: u32,
 }
 
 impl Scanner {
     pub fn new(source: String) -> Self {
         Self {
             source: source.chars().collect(),
-            tokens: Vec::new(),
             start: 0,
             current: 0,
             line: 1,
         }
     }
 
-    pub fn scan_tokens(&mut self) -> &Vec<Token> {
+    pub fn scan_tokens(&mut self) -> Vec<Token> {
+        let mut tokens = vec![];
         while !self.is_at_end() {
             self.start = self.current;
-            self.scan_token()
+            self.scan_token(&mut tokens)
         }
 
-        &self.tokens
+        tokens
     }
 
     pub fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
 
-    fn scan_token(&mut self) {
+    fn scan_token(&mut self, result: &mut Vec<Token>) {
         let character = self.advance();
         match character {
-            '(' => self.add_token(TokenType::LeftParen),
-            ')' => self.add_token(TokenType::RightParen),
-            '{' => self.add_token(TokenType::LeftBrace),
-            '}' => self.add_token(TokenType::RightBrace),
-            ',' => self.add_token(TokenType::Comma),
-            '.' => self.add_token(TokenType::Dot),
-            ';' => self.add_token(TokenType::Semicolon),
-            '-' => self.add_token(TokenType::Minus),
-            '+' => self.add_token(TokenType::Plus),
-            '*' => self.add_token(TokenType::Star),
+            '(' => self.add_token(TokenType::LeftParen, result),
+            ')' => self.add_token(TokenType::RightParen, result),
+            '{' => self.add_token(TokenType::LeftBrace, result),
+            '}' => self.add_token(TokenType::RightBrace, result),
+            ',' => self.add_token(TokenType::Comma, result),
+            '.' => self.add_token(TokenType::Dot, result),
+            ';' => self.add_token(TokenType::Semicolon, result),
+            '-' => self.add_token(TokenType::Minus, result),
+            '+' => self.add_token(TokenType::Plus, result),
+            '*' => self.add_token(TokenType::Star, result),
             '!' => {
                 if self.match_('=') {
-                    self.add_token(TokenType::BangEqual)
+                    self.add_token(TokenType::BangEqual, result)
                 } else {
-                    self.add_token(TokenType::Bang)
+                    self.add_token(TokenType::Bang, result)
                 }
             }
             '=' => {
                 if self.match_('=') {
-                    self.add_token(TokenType::EqualEqual)
+                    self.add_token(TokenType::EqualEqual, result)
                 } else {
-                    self.add_token(TokenType::Equal)
+                    self.add_token(TokenType::Equal, result)
                 }
             }
             '<' => {
                 if self.match_('=') {
-                    self.add_token(TokenType::LessEqual)
+                    self.add_token(TokenType::LessEqual, result)
                 } else {
-                    self.add_token(TokenType::Less)
+                    self.add_token(TokenType::Less, result)
                 }
             }
             '>' => {
                 if self.match_('=') {
-                    self.add_token(TokenType::GreaterEqual)
+                    self.add_token(TokenType::GreaterEqual, result)
                 } else {
-                    self.add_token(TokenType::Greater)
+                    self.add_token(TokenType::Greater, result)
                 }
             }
             '/' => {
@@ -85,18 +85,21 @@ impl Scanner {
                 } else if self.match_('*') {
                     self.multiline_comment();
                 } else {
-                    self.add_token(TokenType::Slash)
+                    self.add_token(TokenType::Slash, result)
                 }
             }
             ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
-            '"' => self.string(),
+            '"' => match self.string() {
+                Ok(str_token) => result.push(str_token),
+                Err(e) => report_err(&e),
+            },
 
             _ => {
                 if character.is_digit(10) {
-                    self.number();
+                    result.push(self.number());
                 } else if character.is_alphabetic() {
-                    self.identifier();
+                    result.push(self.identifier());
                 } else {
                     error_line(self.line, "Unexpected Character ")
                 }
@@ -137,7 +140,7 @@ impl Scanner {
         c
     }
 
-    fn string(&mut self) {
+    fn string(&mut self) -> Result<Token, Error> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -145,16 +148,18 @@ impl Scanner {
             self.advance();
         }
         if self.is_at_end() {
-            error_line(self.line, "Unterminated String!");
-            return;
+            return Result::Err(Error::Scan {
+                message: "Unterminated String".to_owned(),
+                line: self.line,
+            });
         }
         self.advance();
         let slice = &self.source[self.start + 1..self.current + 1];
         let value = Some(Value::String(slice.into_iter().collect()));
-        self.add_token_value(TokenType::String, value)
+        Result::Ok(self.build_token_value(TokenType::String, value))
     }
 
-    fn number(&mut self) {
+    fn number(&mut self) -> Token {
         while self.peek().is_digit(10) {
             self.advance();
         }
@@ -169,15 +174,15 @@ impl Scanner {
         let slice = &self.source[self.start..self.current];
         let num_str: String = slice.into_iter().collect();
         let num_val = Some(Value::Number(num_str.parse::<f64>().unwrap()));
-        self.add_token_value(TokenType::Number, num_val)
+        self.build_token_value(TokenType::Number, num_val)
     }
 
-    fn identifier(&mut self) {
+    fn identifier(&mut self) -> Token {
         while self::Scanner::is_identifier(self.peek()) {
             self.advance();
         }
 
-        self.add_token(TokenType::Identifier);
+        self.build_token(TokenType::Identifier)
     }
 
     fn multiline_comment(&mut self) {
@@ -204,14 +209,28 @@ impl Scanner {
         character.is_alphanumeric() || character == '_'
     }
 
-    fn add_token(&mut self, token_type: TokenType) {
-        self.add_token_value(token_type, None);
+    fn add_token(&mut self, token_type: TokenType, result: &mut Vec<Token>) {
+        self.add_token_value(token_type, None, result);
     }
 
-    fn add_token_value(&mut self, token_type: TokenType, literal: Option<Value>) {
+    fn add_token_value(
+        &mut self,
+        token_type: TokenType,
+        literal: Option<Value>,
+        result: &mut Vec<Token>,
+    ) {
         let slice = &self.source[self.start..self.current];
         let lexeme = slice.into_iter().collect();
-        self.tokens
-            .push(Token::new(token_type, lexeme, literal, self.line));
+        result.push(Token::new(token_type, lexeme, literal, self.line));
+    }
+
+    fn build_token(&mut self, token_type: TokenType) -> Token {
+        self.build_token_value(token_type, None)
+    }
+
+    fn build_token_value(&mut self, token_type: TokenType, literal: Option<Value>) -> Token {
+        let slice = &self.source[self.start..self.current];
+        let lexeme = slice.into_iter().collect();
+        Token::new(token_type, lexeme, literal, self.line)
     }
 }
