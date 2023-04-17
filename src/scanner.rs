@@ -99,7 +99,7 @@ impl Scanner {
                 if character.is_digit(10) {
                     result.push(self.number());
                 } else if character.is_alphabetic() {
-                    result.push(self.identifier());
+                    result.push(self.identifier_or_keyword());
                 } else {
                     error_line(self.line, "Unexpected Character ")
                 }
@@ -177,12 +177,36 @@ impl Scanner {
         self.build_token_value(TokenType::Number, num_val)
     }
 
-    fn identifier(&mut self) -> Token {
+    fn identifier_str(&mut self) -> String {
         while self::Scanner::is_identifier(self.peek()) {
             self.advance();
         }
 
-        self.build_token(TokenType::Identifier)
+        let slice = &self.source[self.start..self.current];
+        slice.into_iter().collect()
+    }
+
+    fn identifier_or_keyword(&mut self) -> Token {
+        let id = self.identifier_str();
+        match id.as_str() {
+            "and" => self.build_token(TokenType::And),
+            "class" => self.build_token(TokenType::Class),
+            "else" => self.build_token(TokenType::Else),
+            "false" => self.build_token(TokenType::False),
+            "for" => self.build_token(TokenType::For),
+            "fun" => self.build_token(TokenType::Fun),
+            "if" => self.build_token(TokenType::If),
+            "nil" => self.build_token(TokenType::Nil),
+            "or" => self.build_token(TokenType::Or),
+            "print" => self.build_token(TokenType::Print),
+            "return" => self.build_token(TokenType::Return),
+            "super" => self.build_token(TokenType::Super),
+            "this" => self.build_token(TokenType::This),
+            "true" => self.build_token(TokenType::True),
+            "var" => self.build_token(TokenType::Var),
+            "while" => self.build_token(TokenType::While),
+            _ => self.build_token(TokenType::Identifier),
+        }
     }
 
     fn multiline_comment(&mut self) {
@@ -233,4 +257,10 @@ impl Scanner {
         let lexeme = slice.into_iter().collect();
         Token::new(token_type, lexeme, literal, self.line)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn random_tokens() {}
 }
