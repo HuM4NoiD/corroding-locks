@@ -23,11 +23,23 @@ impl Scanner {
         }
     }
 
+    pub fn reset_with_source(&mut self, source: String) {
+        self.source = source.chars().collect();
+        self.start = 0;
+        self.current = 0;
+        self.line = 1;
+    }
+
     pub fn scan_tokens(&mut self) -> Vec<Token> {
         let mut tokens = vec![];
+        let mut errors = vec![];
         while !self.is_at_end() {
             self.start = self.current;
-            self.scan_token(&mut tokens)
+            match self.scan_token() {
+                Ok(Some(token)) => tokens.push(token),
+                Ok(None) => {}
+                Err(e) => {errors.push(e)}
+            }
         }
 
         tokens
@@ -37,46 +49,46 @@ impl Scanner {
         self.current >= self.source.len()
     }
 
-    fn scan_token(&mut self, result: &mut Vec<Token>) {
+    fn scan_token(&mut self) -> Result<Option<Token>, Error> {
         let character = self.advance();
         match character {
-            '(' => self.add_token(TokenType::LeftParen, result),
-            ')' => self.add_token(TokenType::RightParen, result),
-            '{' => self.add_token(TokenType::LeftBrace, result),
-            '}' => self.add_token(TokenType::RightBrace, result),
-            ',' => self.add_token(TokenType::Comma, result),
-            '.' => self.add_token(TokenType::Dot, result),
-            ';' => self.add_token(TokenType::Semicolon, result),
-            '-' => self.add_token(TokenType::Minus, result),
-            '+' => self.add_token(TokenType::Plus, result),
-            '*' => self.add_token(TokenType::Star, result),
+            '(' => self.build_token(TokenType::LeftParen),
+            ')' => self.build_token(TokenType::RightParen),
+            '{' => self.build_token(TokenType::LeftBrace),
+            '}' => self.build_token(TokenType::RightBrace),
+            ',' => self.build_token(TokenType::Comma),
+            '.' => self.build_token(TokenType::Dot),
+            ';' => self.build_token(TokenType::Semicolon),
+            '-' => self.build_token(TokenType::Minus),
+            '+' => self.build_token(TokenType::Plus),
+            '*' => self.build_token(TokenType::Star),
             '!' => {
                 if self.match_('=') {
-                    self.add_token(TokenType::BangEqual, result)
+                    self.build_token(TokenType::BangEqual)
                 } else {
-                    self.add_token(TokenType::Bang, result)
+                    self.build_token(TokenType::Bang)
                 }
             }
             '=' => {
                 println!("for equal, current: {}, peek: {}", character, self.peek());
                 if self.match_('=') {
-                    self.add_token(TokenType::EqualEqual, result)
+                    self.build_token(TokenType::EqualEqual)
                 } else {
-                    self.add_token(TokenType::Equal, result)
+                    self.build_token(TokenType::Equal)
                 }
             }
             '<' => {
                 if self.match_('=') {
-                    self.add_token(TokenType::LessEqual, result)
+                    self.build_token(TokenType::LessEqual)
                 } else {
-                    self.add_token(TokenType::Less, result)
+                    self.build_token(TokenType::Less)
                 }
             }
             '>' => {
                 if self.match_('=') {
-                    self.add_token(TokenType::GreaterEqual, result)
+                    self.build_token(TokenType::GreaterEqual)
                 } else {
-                    self.add_token(TokenType::Greater, result)
+                    self.build_token(TokenType::Greater)
                 }
             }
             '/' => {
@@ -84,28 +96,26 @@ impl Scanner {
                     while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
                     }
+                    Result::Ok(None)
                 } else if self.match_('*') {
-                    self.multiline_comment();
+                    self.multiline_comment()
                 } else {
-                    self.add_token(TokenType::Slash, result)
+                    self.build_token(TokenType::Slash)
                 }
             }
-            ' ' | '\r' | '\t' => {}
-            '\n' => self.line += 1,
-            '"' => match self.string() {
-                Ok(str_token) => self.push_token(str_token, result),
-                Err(e) => report_err(&e),
+            ' ' | '\r' | '\t' => {Result::Ok(None)}
+            '\n' => {
+                self.line += 1; 
+                Result::Ok(None)
             },
-
+            '"' => self.string(),
             _ => {
                 if character.is_digit(10) {
-                    let t = self.number();
-                    self.push_token(t, result)
+                    self.number()
                 } else if character.is_alphabetic() {
-                    let t = self.identifier_or_keyword();
-                    self.push_token(t, result);
+                    self.identifier_or_keyword()
                 } else {
-                    error_line(self.line, format!("Unexpected character: {}", character).as_str())
+                    Result::Err(Error::Scan { message: format!("Unexpected character: {}", character), line: self.line })
                 }
             }
         }
@@ -144,7 +154,7 @@ impl Scanner {
         c
     }
 
-    fn string(&mut self) -> Result<Token, Error> {
+    fn string(&mut self) -> Result<Option<Token>, Error> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -160,10 +170,10 @@ impl Scanner {
         self.advance();
         let slice = &self.source[self.start + 1..self.current - 1];
         let value = Some(Value::String(slice.into_iter().collect()));
-        Result::Ok(self.build_token_value(TokenType::String, value))
+        self.build_token_value(TokenType::String, value)
     }
 
-    fn number(&mut self) -> Token {
+    fn number(&mut self) -> Result<Option<Token>, Error> {
         while self.peek().is_digit(10) {
             self.advance();
         }
@@ -190,7 +200,7 @@ impl Scanner {
         slice.into_iter().collect()
     }
 
-    fn identifier_or_keyword(&mut self) -> Token {
+    fn identifier_or_keyword(&mut self) -> Result<Option<Token>, Error> {
         let id = self.identifier_str();
         match id.as_str() {
             "and" => self.build_token(TokenType::And),
@@ -216,7 +226,7 @@ impl Scanner {
     fn multiline_comment(&mut self) -> Result<Option<Token>, Error> {
         let mut nesting = 1;
         while nesting > 0 {
-            // println!("nesting: {}, peek: {}, peek_next: {}", nesting, self.peek(), self.peek_next());
+            println!("nesting: {}, peek: {}, peek_next: {}", nesting, self.peek(), self.peek_next());
             if self.peek() == '\0' {
                 let error_message = "Unterminated Multiline Comment";
                 error_line(self.line, error_message);
@@ -234,6 +244,7 @@ impl Scanner {
                 nesting -= 1;
                 continue;
             }
+            self.advance();
         }
         Result::Ok(None)
     }
@@ -242,34 +253,16 @@ impl Scanner {
         character.is_alphanumeric() || character == '_'
     }
 
-    fn add_token(&mut self, token_type: TokenType, result: &mut Vec<Token>) {
-        self.add_token_value(token_type, None, result);
-    }
-
-    fn add_token_value(
-        &mut self,
-        token_type: TokenType,
-        literal: Option<Value>,
-        result: &mut Vec<Token>,
-    ) {
-        let slice = &self.source[self.start..self.current];
-        let lexeme = slice.into_iter().collect();
-        self.push_token(Token::new(token_type, lexeme, literal, self.line), result);
-    }
-
-    fn build_token(&mut self, token_type: TokenType) -> Token {
+    fn build_token(&mut self, token_type: TokenType) -> Result<Option<Token>, Error> {
         self.build_token_value(token_type, None)
     }
 
-    fn build_token_value(&mut self, token_type: TokenType, literal: Option<Value>) -> Token {
+    fn build_token_value(&mut self, token_type: TokenType, literal: Option<Value>) -> Result<Option<Token>, Error> {
         let slice = &self.source[self.start..self.current];
         let lexeme = slice.into_iter().collect();
-        Token::new(token_type, lexeme, literal, self.line)
-    }
-
-    fn push_token(&self, token: Token, result: &mut Vec<Token>) {
-        println!("Pushing token {:?}", token);
-        result.push(token);
+        let res = Result::Ok(Some(Token::new(token_type, lexeme, literal, self.line)));
+        println!("Created token: {:?}", res);
+        res
     }
 }
 

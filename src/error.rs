@@ -6,6 +6,7 @@ pub fn report(line_num: u32, whr: &str, message: &str) {
     println!("[line {}] Error {}: {}", line_num, whr, message)
 }
 
+#[derive(Debug)]
 pub enum Error {
     Scan { message: String, line: u32 },
 }
