@@ -14,6 +14,7 @@ pub struct Scanner {
 
 impl Scanner {
     pub fn new(source: String) -> Self {
+        println!("Created scanner with source: {}", source);
         Self {
             source: source.chars().collect(),
             start: 0,
@@ -57,6 +58,7 @@ impl Scanner {
                 }
             }
             '=' => {
+                println!("for equal, current: {}, peek: {}", character, self.peek());
                 if self.match_('=') {
                     self.add_token(TokenType::EqualEqual, result)
                 } else {
@@ -91,17 +93,19 @@ impl Scanner {
             ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
             '"' => match self.string() {
-                Ok(str_token) => result.push(str_token),
+                Ok(str_token) => self.push_token(str_token, result),
                 Err(e) => report_err(&e),
             },
 
             _ => {
                 if character.is_digit(10) {
-                    result.push(self.number());
+                    let t = self.number();
+                    self.push_token(t, result)
                 } else if character.is_alphabetic() {
-                    result.push(self.identifier_or_keyword());
+                    let t = self.identifier_or_keyword();
+                    self.push_token(t, result);
                 } else {
-                    error_line(self.line, "Unexpected Character ")
+                    error_line(self.line, format!("Unexpected character: {}", character).as_str())
                 }
             }
         }
@@ -149,12 +153,12 @@ impl Scanner {
         }
         if self.is_at_end() {
             return Result::Err(Error::Scan {
-                message: "Unterminated String".to_owned(),
+                message: "Unterminated String".to_string(),
                 line: self.line,
             });
         }
         self.advance();
-        let slice = &self.source[self.start + 1..self.current + 1];
+        let slice = &self.source[self.start + 1..self.current - 1];
         let value = Some(Value::String(slice.into_iter().collect()));
         Result::Ok(self.build_token_value(TokenType::String, value))
     }
@@ -209,24 +213,29 @@ impl Scanner {
         }
     }
 
-    fn multiline_comment(&mut self) {
+    fn multiline_comment(&mut self) -> Result<Option<Token>, Error> {
         let mut nesting = 1;
         while nesting > 0 {
+            // println!("nesting: {}, peek: {}, peek_next: {}", nesting, self.peek(), self.peek_next());
             if self.peek() == '\0' {
-                error_line(self.line, "Unterminated Multiline Comment");
-                return;
+                let error_message = "Unterminated Multiline Comment";
+                error_line(self.line, error_message);
+                return Result::Err(Error::Scan { message: error_message.to_string(), line: self.line });
             }
             if self.peek() == '/' && self.peek_next() == '*' {
                 self.advance();
                 self.advance();
-                nesting += 1
+                nesting += 1;
+                continue;
             }
             if self.peek() == '*' && self.peek_next() == '/' {
                 self.advance();
                 self.advance();
                 nesting -= 1;
+                continue;
             }
         }
+        Result::Ok(None)
     }
 
     fn is_identifier(character: char) -> bool {
@@ -245,7 +254,7 @@ impl Scanner {
     ) {
         let slice = &self.source[self.start..self.current];
         let lexeme = slice.into_iter().collect();
-        result.push(Token::new(token_type, lexeme, literal, self.line));
+        self.push_token(Token::new(token_type, lexeme, literal, self.line), result);
     }
 
     fn build_token(&mut self, token_type: TokenType) -> Token {
@@ -257,10 +266,52 @@ impl Scanner {
         let lexeme = slice.into_iter().collect();
         Token::new(token_type, lexeme, literal, self.line)
     }
+
+    fn push_token(&self, token: Token, result: &mut Vec<Token>) {
+        println!("Pushing token {:?}", token);
+        result.push(token);
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::token::TokenType;
     #[test]
-    fn random_tokens() {}
+    fn random_tokens() {
+        let source = "(){},.-+;*!23!=42.42/*.block.\n.comment.*/==<<==>/>=\"foo \nbar\"// this is a comment now";
+        let mut scanner = super::Scanner::new(source.to_string());
+        let tokens = scanner.scan_tokens();
+
+        for (i, v) in [
+            TokenType::LeftParen,
+            TokenType::RightParen,
+            TokenType::LeftBrace,
+            TokenType::RightBrace,
+            TokenType::Comma,
+            TokenType::Dot,
+            TokenType::Minus,
+            TokenType::Plus,
+            TokenType::Semicolon,
+            TokenType::Star,
+            TokenType::Bang,
+            TokenType::Number,
+            TokenType::BangEqual,
+            TokenType::Number,
+            TokenType::EqualEqual,
+            TokenType::Less,
+            TokenType::LessEqual,
+            TokenType::Equal,
+            TokenType::Greater,
+            TokenType::Slash,
+            TokenType::GreaterEqual,
+            TokenType::String,
+        ]
+        .iter()
+        .enumerate()
+        {
+            assert_eq!(&tokens[i].token_type, v);
+        }
+
+        assert_eq!(tokens[12].lexeme, "!=");
+    }
 }

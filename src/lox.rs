@@ -3,6 +3,8 @@ use std::{
     io::{self, BufRead, Write},
 };
 
+use crate::scanner::Scanner;
+
 pub struct Lox {
     args: Vec<String>,
 }
@@ -45,6 +47,9 @@ impl Lox {
     }
 
     fn run(&self, source: String) {
-        println!("Got Source:\n{}", source)
+        println!("Got Source:\n{}", source);
+        let mut scanner = Scanner::new(source);
+        let tokens = scanner.scan_tokens();
+        println!("Tokens: {:?}", tokens)
     }
 }
