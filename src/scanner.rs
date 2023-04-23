@@ -271,6 +271,7 @@ mod tests {
     use crate::token::TokenType;
     #[test]
     fn random_tokens() {
+        //Shamelessly stolen from https://github.com/abesto/jlox-rs/blob/main/src/scanner.rs
         let source = "(){},.-+;*!23!=42.42/*.block.\n.comment.*/==<<==>/>=\"foo \nbar\"// this is a comment now";
         let mut scanner = super::Scanner::new(source.to_string());
         let tokens = scanner.scan_tokens();
