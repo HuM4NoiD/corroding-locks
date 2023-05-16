@@ -1,3 +1,5 @@
+// The idea is to help generate enums for the different node types 
+// that represent the AST for the language.
 macro_rules! generate_ast {
     (
         $(
@@ -70,7 +72,7 @@ macro_rules! generate_ast {
                     }
 
                     $(
-                        pub fn [<new_ $nodetype:snake>] ($($attr: $attrtype),*) -> $node {
+                        pub fn [<$nodetype:snake>] ($($attr: $attrtype),*) -> $node {
                             $node :: $nodetype ([<$nodetype $node>]::new($($attr),*))
                         }
                     )*

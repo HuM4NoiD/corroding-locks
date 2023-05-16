@@ -1,5 +1,3 @@
-use std::env;
-
 #[macro_use]
 extern crate paste;
 
@@ -11,6 +9,8 @@ pub mod lox;
 pub mod scanner;
 pub mod token;
 pub mod value;
+
+use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
