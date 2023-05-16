@@ -1,6 +1,8 @@
+use std::fmt::Display;
+
 use crate::value::Value;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -48,10 +50,16 @@ pub enum TokenType {
     Var,
     While,
 
-    EOF,
+    Eof,
 }
 
-#[derive(Debug)]
+impl Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", stringify!(self))
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
@@ -67,5 +75,15 @@ impl Token {
             literal,
             line,
         }
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Token(type: {} lexeme: {} literal: {:#?} line: {})",
+            self.token_type, self.lexeme, self.literal, self.line
+        )
     }
 }

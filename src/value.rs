@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
     Boolean(bool),
     Number(f64),

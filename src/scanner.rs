@@ -3,7 +3,7 @@ use crate::{
     token::{Token, TokenType},
     value::Value,
 };
-use std::{iter::Iterator};
+use std::iter::Iterator;
 
 pub struct Scanner {
     source: Vec<char>,
@@ -38,7 +38,7 @@ impl Scanner {
             match self.scan_token() {
                 Ok(Some(token)) => tokens.push(token),
                 Ok(None) => {}
-                Err(e) => {errors.push(e)}
+                Err(e) => errors.push(e),
             }
         }
 
@@ -103,11 +103,11 @@ impl Scanner {
                     self.build_token(TokenType::Slash)
                 }
             }
-            ' ' | '\r' | '\t' => {Result::Ok(None)}
+            ' ' | '\r' | '\t' => Result::Ok(None),
             '\n' => {
-                self.line += 1; 
+                self.line += 1;
                 Result::Ok(None)
-            },
+            }
             '"' => self.string(),
             _ => {
                 if character.is_digit(10) {
@@ -115,7 +115,10 @@ impl Scanner {
                 } else if character.is_alphabetic() {
                     self.identifier_or_keyword()
                 } else {
-                    Result::Err(Error::Scan { message: format!("Unexpected character: {}", character), line: self.line })
+                    Result::Err(Error::Scan {
+                        message: format!("Unexpected character: {}", character),
+                        line: self.line,
+                    })
                 }
             }
         }
@@ -226,11 +229,19 @@ impl Scanner {
     fn multiline_comment(&mut self) -> Result<Option<Token>, Error> {
         let mut nesting = 1;
         while nesting > 0 {
-            println!("nesting: {}, peek: {}, peek_next: {}", nesting, self.peek(), self.peek_next());
+            println!(
+                "nesting: {}, peek: {}, peek_next: {}",
+                nesting,
+                self.peek(),
+                self.peek_next()
+            );
             if self.peek() == '\0' {
                 let error_message = "Unterminated Multiline Comment";
                 error_line(self.line, error_message);
-                return Result::Err(Error::Scan { message: error_message.to_string(), line: self.line });
+                return Result::Err(Error::Scan {
+                    message: error_message.to_string(),
+                    line: self.line,
+                });
             }
             if self.peek() == '/' && self.peek_next() == '*' {
                 self.advance();
@@ -257,7 +268,11 @@ impl Scanner {
         self.build_token_value(token_type, None)
     }
 
-    fn build_token_value(&mut self, token_type: TokenType, literal: Option<Value>) -> Result<Option<Token>, Error> {
+    fn build_token_value(
+        &mut self,
+        token_type: TokenType,
+        literal: Option<Value>,
+    ) -> Result<Option<Token>, Error> {
         let slice = &self.source[self.start..self.current];
         let lexeme = slice.into_iter().collect();
         let res = Result::Ok(Some(Token::new(token_type, lexeme, literal, self.line)));

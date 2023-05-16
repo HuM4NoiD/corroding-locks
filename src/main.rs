@@ -1,4 +1,11 @@
 use std::env;
+
+#[macro_use]
+extern crate paste;
+
+#[macro_use]
+pub mod ast_macros;
+pub mod ast;
 pub mod error;
 pub mod lox;
 pub mod scanner;
