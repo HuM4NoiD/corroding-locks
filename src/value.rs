@@ -18,3 +18,21 @@ impl Display for Value {
         }
     }
 }
+
+pub type VmValue = f64;
+
+#[derive(Debug)]
+pub struct VmValueArray {
+    pub values: Vec<VmValue>
+}
+
+impl VmValueArray {
+    pub fn new() -> VmValueArray {
+        VmValueArray { values: vec![] }
+    }
+
+    pub fn add(&mut self, value: VmValue) {
+        self.values.push(value);
+    }
+}
+
