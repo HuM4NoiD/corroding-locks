@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 num_enum = "0.7.0"
 paste = "1.0.12"
+
+[features]
+DEBUG_TRACE_EXECUTION = []

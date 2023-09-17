@@ -6,6 +6,11 @@ use crate::value::{VmValue, VmValueArray};
 #[repr(u8)]
 pub enum OpCode {
     OpConstant,
+    OpAdd,
+    OpSubtract,
+    OpMultiply,
+    OpDivide,
+    OpNegate,
     OpReturn,
 }
 

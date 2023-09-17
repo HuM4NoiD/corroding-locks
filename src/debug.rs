@@ -22,10 +22,16 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
     } else {
         print!("{:4} ", chunk.lines[offset]);
     }
+    use OpCode as OC;
     if let Ok(code) = op_code {
         match code {
-            OpCode::OpReturn => simple_instruction("OpReturn", offset),
-            OpCode::OpConstant => constant_instruction("OpConstant", chunk, offset)
+            OC::OpReturn => simple_instruction("OpReturn", offset),
+            OC::OpAdd => simple_instruction("OpAdd", offset),
+            OC::OpSubtract => simple_instruction("OpSubtract", offset),
+            OC::OpMultiply => simple_instruction("OpMultiply", offset),
+            OC::OpDivide => simple_instruction("OpDivide", offset),
+            OC::OpNegate => simple_instruction("OpNegate", offset),
+            OC::OpConstant => constant_instruction("OpConstant", chunk, offset)
         }
     } else {
         println!("Unknown opcode {}", inst_code);
