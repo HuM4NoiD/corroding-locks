@@ -30,6 +30,7 @@ impl Scanner {
         self.line = 1;
     }
 
+    /*
     pub fn scan_tokens(&mut self) -> Vec<Token> {
         let mut tokens = vec![];
         let mut errors = vec![];
@@ -44,12 +45,17 @@ impl Scanner {
 
         tokens
     }
+    */
 
     pub fn is_at_end(&self) -> bool {
         self.current >= self.source.len()
     }
 
-    fn scan_token(&mut self) -> Result<Option<Token>, Error> {
+    pub fn scan_token(&mut self) -> Result<Option<Token>, Error> {
+        self.start = self.current;
+        if self.is_at_end() {
+            return self.build_token(TokenType::Eof);
+        }
         let character = self.advance();
         match character {
             '(' => self.build_token(TokenType::LeftParen),
@@ -70,7 +76,6 @@ impl Scanner {
                 }
             }
             '=' => {
-                println!("for equal, current: {}, peek: {}", character, self.peek());
                 if self.match_('=') {
                     self.build_token(TokenType::EqualEqual)
                 } else {
@@ -229,12 +234,6 @@ impl Scanner {
     fn multiline_comment(&mut self) -> Result<Option<Token>, Error> {
         let mut nesting = 1;
         while nesting > 0 {
-            println!(
-                "nesting: {}, peek: {}, peek_next: {}",
-                nesting,
-                self.peek(),
-                self.peek_next()
-            );
             if self.peek() == '\0' {
                 let error_message = "Unterminated Multiline Comment";
                 error_line(self.line, error_message);
@@ -276,7 +275,7 @@ impl Scanner {
         let slice = &self.source[self.start..self.current];
         let lexeme = slice.into_iter().collect();
         let res = Result::Ok(Some(Token::new(token_type, lexeme, literal, self.line)));
-        println!("Created token: {:?}", res);
+        //println!("Created token: {:?}", res);
         res
     }
 }
@@ -284,6 +283,7 @@ impl Scanner {
 #[cfg(test)]
 mod tests {
     use crate::token::TokenType;
+    /*
     #[test]
     fn random_tokens() {
         //Shamelessly stolen from https://github.com/abesto/jlox-rs/blob/main/src/scanner.rs
@@ -323,4 +323,5 @@ mod tests {
 
         assert_eq!(tokens[12].lexeme, "!=");
     }
+    */
 }

@@ -1,6 +1,6 @@
 use crate::{
     chunk::{Chunk, OpCode},
-    debug::disassemble_instruction, value::VmValue
+    debug::disassemble_instruction, value::VmValue, compiler::compile
 };
 
 macro_rules! binary_op {
@@ -40,7 +40,12 @@ impl VM {
         self.stack.pop()
     }
 
-    pub fn interpret(&mut self, chunk: &Chunk) -> Result<(), InterpretError> {
+    pub fn interpret(&mut self, source: String) -> Result<(), InterpretError> {
+        compile(source);
+        Ok(())
+    }
+
+    pub fn run(&mut self, chunk: &Chunk) -> Result<(), InterpretError> {
         let mut index: usize = 0;
         while index < chunk.code.len() {
             if cfg!(feature = "DEBUG_TRACE_EXECUTION") {

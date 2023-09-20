@@ -4,8 +4,8 @@ extern crate paste;
 #[macro_use]
 pub mod ast_macros;
 pub mod ast;
+pub mod compiler;
 pub mod error;
-pub mod lox;
 pub mod scanner;
 pub mod token;
 pub mod value;
@@ -14,7 +14,7 @@ pub mod debug;
 #[macro_use]
 pub mod vm;
 
-use std::result;
+use std::{result, env, process::ExitCode, io::{self, Write}, fs};
 
 use crate::{
     chunk::{ Chunk, OpCode::* }, 
@@ -24,34 +24,50 @@ use crate::{
 };
 
 
-fn main() {
-    let mut chunk = Chunk::new();
+fn main() -> ExitCode {
     let mut vm = VM::new();
+    
+    let args: Vec<String> = env::args().collect();
+    if args.len() == 1 {
+        repl(&mut vm)
+    } else if args.len() == 2 {
+        run_file(&mut vm, &args[1])
+    } else {
+        println!("Usage: lox-rust [path]");
+        ExitCode::from(42)
+    }
+}
 
-    let constant_index = chunk.add_constant(1.2);
-    chunk.write(OpConstant.into(), 123);
-    chunk.write(constant_index.try_into().unwrap(), 123);
+fn repl(vm: &mut VM) -> ExitCode {
+    let stdin = io::stdin();
+    loop {
+        let mut buffer = String::new();
+        print!("> ");
+        let _ = io::stdout().flush();
+        let _ = stdin.read_line(&mut buffer);
+        println!("{}", &buffer);
+        let _ = vm.interpret(buffer);
+    }
+}
 
-    let constant_index = chunk.add_constant(3.4);
-    chunk.write(OpConstant.into(), 123);
-    chunk.write(constant_index.try_into().unwrap(), 123);
-
-    chunk.write(OpAdd.into(), 123);
-
-    let constant_index = chunk.add_constant(5.6);
-    chunk.write(OpConstant.into(), 123);
-    chunk.write(constant_index.try_into().unwrap(), 123);
-
-    chunk.write(OpDivide.into(), 123);
-
-    chunk.write(OpNegate.into(), 123);
-    chunk.write(OpReturn.into(), 123);
-
-//    disassemble_chunk(&chunk, "test chunk");
-    let result = vm.interpret(&chunk);
+fn run_file(vm: &mut VM, file_path: &str) -> ExitCode {
+    let result = fs::read_to_string(file_path);
     match result {
-        Ok(_) => println!("Interpret Ok"),
-        Err(e) => println!("Interpret Error, {:?}", e),
-    };
+        Ok(source) => {
+            let result = vm.interpret(source);
+            use InterpretError as IE;
+            match result {
+                Ok(_) => ExitCode::from(0),
+                Err(e) => match e {
+                    IE::CompileError => ExitCode::from(65),
+                    IE::RuntimeError => ExitCode::from(70),
+                }
+            }
+        },
+        Err(e) => {
+            println!("Could not open file {}. error: {:?}", file_path, e);
+            ExitCode::from(74)
+        },
+    }
 }
 
