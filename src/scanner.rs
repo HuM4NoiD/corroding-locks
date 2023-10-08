@@ -190,8 +190,6 @@ impl Scanner {
             });
         }
         self.advance();
-        let slice = &self.source[self.start + 1..self.current - 1];
-        let value = Some(Value::String(slice.into_iter().collect()));
         self.build_token_value(TokenType::String)
     }
 
@@ -207,8 +205,6 @@ impl Scanner {
             }
         }
 
-        let slice = &self.source[self.start..self.current];
-        let num_str: String = slice.into_iter().collect();
         self.build_token_value(TokenType::Number)
     }
 

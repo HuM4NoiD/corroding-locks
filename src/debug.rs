@@ -23,13 +23,20 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
     use OpCode as OC;
     if let Ok(code) = op_code {
         match code {
-            OC::OpReturn => simple_instruction("OpReturn", offset),
+            OC::OpConstant => constant_instruction("OpConstant", chunk, offset),
+            OC::OpNil => simple_instruction("OpNil", offset),
+            OC::OpTrue => simple_instruction("OpTrue", offset),
+            OC::OpFalse => simple_instruction("OpFalse", offset),
+            OC::OpEqual => simple_instruction("OpEqual", offset),
+            OC::OpGreater => simple_instruction("OpGreater", offset),
+            OC::OpLess => simple_instruction("OpLess", offset),
             OC::OpAdd => simple_instruction("OpAdd", offset),
             OC::OpSubtract => simple_instruction("OpSubtract", offset),
             OC::OpMultiply => simple_instruction("OpMultiply", offset),
             OC::OpDivide => simple_instruction("OpDivide", offset),
+            OC::OpNot => simple_instruction("OpNot", offset),
             OC::OpNegate => simple_instruction("OpNegate", offset),
-            OC::OpConstant => constant_instruction("OpConstant", chunk, offset),
+            OC::OpReturn => simple_instruction("OpReturn", offset),
         }
     } else {
         println!("Unknown opcode {}", inst_code);
@@ -44,7 +51,7 @@ pub fn simple_instruction(name: &str, offset: usize) -> usize {
 
 pub fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     let constant = chunk.code[offset + 1];
-    let value = chunk.value_array.values[constant as usize];
+    let value = &chunk.value_array.values[constant as usize];
     println!("{} {:4} '{}'", name, constant, value);
     offset + 2
 }

@@ -1,15 +1,22 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::value::{VmValue, VmValueArray};
+use crate::value::{ValueArray, Value};
 
 #[derive(IntoPrimitive, TryFromPrimitive, PartialEq, Eq)]
 #[repr(u8)]
 pub enum OpCode {
     OpConstant,
+    OpNil,
+    OpTrue,
+    OpFalse,
+    OpEqual,
+    OpGreater,
+    OpLess,
     OpAdd,
     OpSubtract,
     OpMultiply,
     OpDivide,
+    OpNot,
     OpNegate,
     OpReturn,
 }
@@ -18,7 +25,7 @@ pub enum OpCode {
 pub struct Chunk {
     pub code: Vec<u8>,
     pub lines: Vec<u32>,
-    pub value_array: VmValueArray,
+    pub value_array: ValueArray,
 }
 
 impl Chunk {
@@ -26,7 +33,7 @@ impl Chunk {
         Chunk {
             code: vec![],
             lines: vec![],
-            value_array: VmValueArray::new(),
+            value_array: ValueArray::new(),
         }
     }
 
@@ -39,7 +46,7 @@ impl Chunk {
         self.code.len()
     }
 
-    pub fn add_constant(&mut self, value: VmValue) -> usize {
+    pub fn add_constant(&mut self, value: Value) -> usize {
         self.value_array.add(value);
         self.value_array.values.len() - 1
     }
