@@ -1,4 +1,4 @@
-// The idea is to help generate enums for the different node types 
+// The idea is to help generate enums for the different node types
 // that represent the AST for the language.
 macro_rules! generate_ast {
     (

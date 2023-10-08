@@ -23,7 +23,7 @@ pub type VmValue = f64;
 
 #[derive(Debug)]
 pub struct VmValueArray {
-    pub values: Vec<VmValue>
+    pub values: Vec<VmValue>,
 }
 
 impl VmValueArray {
@@ -35,4 +35,3 @@ impl VmValueArray {
         self.values.push(value);
     }
 }
-

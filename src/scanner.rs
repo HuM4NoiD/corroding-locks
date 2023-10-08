@@ -5,6 +5,11 @@ use crate::{
 };
 use std::iter::Iterator;
 
+pub struct ScanError {
+    pub message: String,
+    pub line: u32,
+}
+
 pub struct Scanner {
     source: Vec<char>,
     start: usize,
@@ -14,7 +19,7 @@ pub struct Scanner {
 
 impl Scanner {
     pub fn new(source: String) -> Self {
-        println!("Created scanner with source: {}", source);
+        //println!("Created scanner with source: {}", source);
         Self {
             source: source.chars().collect(),
             start: 0,
@@ -51,7 +56,7 @@ impl Scanner {
         self.current >= self.source.len()
     }
 
-    pub fn scan_token(&mut self) -> Result<Option<Token>, Error> {
+    pub fn scan_token(&mut self) -> Result<Token, ScanError> {
         self.start = self.current;
         if self.is_at_end() {
             return self.build_token(TokenType::Eof);
@@ -101,17 +106,22 @@ impl Scanner {
                     while self.peek() != '\n' && !self.is_at_end() {
                         self.advance();
                     }
-                    Result::Ok(None)
+                    self.proceed_with_next()
                 } else if self.match_('*') {
-                    self.multiline_comment()
+                    let result = self.multiline_comment();
+                    if result.is_err() {
+                        Result::Err(result.unwrap_err())
+                    } else {
+                        self.proceed_with_next()
+                    }
                 } else {
                     self.build_token(TokenType::Slash)
                 }
             }
-            ' ' | '\r' | '\t' => Result::Ok(None),
+            ' ' | '\r' | '\t' => self.proceed_with_next(),
             '\n' => {
                 self.line += 1;
-                Result::Ok(None)
+                self.proceed_with_next()
             }
             '"' => self.string(),
             _ => {
@@ -120,13 +130,17 @@ impl Scanner {
                 } else if character.is_alphabetic() {
                     self.identifier_or_keyword()
                 } else {
-                    Result::Err(Error::Scan {
+                    Result::Err(ScanError {
                         message: format!("Unexpected character: {}", character),
                         line: self.line,
                     })
                 }
             }
         }
+    }
+
+    fn proceed_with_next(&mut self) -> Result<Token, ScanError> {
+        self.scan_token()
     }
 
     fn match_(&mut self, expected: char) -> bool {
@@ -162,7 +176,7 @@ impl Scanner {
         c
     }
 
-    fn string(&mut self) -> Result<Option<Token>, Error> {
+    fn string(&mut self) -> Result<Token, ScanError> {
         while self.peek() != '"' && !self.is_at_end() {
             if self.peek() == '\n' {
                 self.line += 1;
@@ -170,7 +184,7 @@ impl Scanner {
             self.advance();
         }
         if self.is_at_end() {
-            return Result::Err(Error::Scan {
+            return Result::Err(ScanError {
                 message: "Unterminated String".to_string(),
                 line: self.line,
             });
@@ -181,7 +195,7 @@ impl Scanner {
         self.build_token_value(TokenType::String, value)
     }
 
-    fn number(&mut self) -> Result<Option<Token>, Error> {
+    fn number(&mut self) -> Result<Token, ScanError> {
         while self.peek().is_digit(10) {
             self.advance();
         }
@@ -208,7 +222,7 @@ impl Scanner {
         slice.into_iter().collect()
     }
 
-    fn identifier_or_keyword(&mut self) -> Result<Option<Token>, Error> {
+    fn identifier_or_keyword(&mut self) -> Result<Token, ScanError> {
         let id = self.identifier_str();
         match id.as_str() {
             "and" => self.build_token(TokenType::And),
@@ -231,13 +245,13 @@ impl Scanner {
         }
     }
 
-    fn multiline_comment(&mut self) -> Result<Option<Token>, Error> {
+    fn multiline_comment(&mut self) -> Result<(), ScanError> {
         let mut nesting = 1;
         while nesting > 0 {
             if self.peek() == '\0' {
                 let error_message = "Unterminated Multiline Comment";
                 error_line(self.line, error_message);
-                return Result::Err(Error::Scan {
+                return Result::Err(ScanError {
                     message: error_message.to_string(),
                     line: self.line,
                 });
@@ -256,14 +270,14 @@ impl Scanner {
             }
             self.advance();
         }
-        Result::Ok(None)
+        Result::Ok(())
     }
 
     fn is_identifier(character: char) -> bool {
         character.is_alphanumeric() || character == '_'
     }
 
-    fn build_token(&mut self, token_type: TokenType) -> Result<Option<Token>, Error> {
+    fn build_token(&mut self, token_type: TokenType) -> Result<Token, ScanError> {
         self.build_token_value(token_type, None)
     }
 
@@ -271,10 +285,10 @@ impl Scanner {
         &mut self,
         token_type: TokenType,
         literal: Option<Value>,
-    ) -> Result<Option<Token>, Error> {
+    ) -> Result<Token, ScanError> {
         let slice = &self.source[self.start..self.current];
         let lexeme = slice.into_iter().collect();
-        let res = Result::Ok(Some(Token::new(token_type, lexeme, literal, self.line)));
+        let res = Result::Ok(Token::new(token_type, lexeme, literal, self.line));
         //println!("Created token: {:?}", res);
         res
     }
@@ -287,7 +301,8 @@ mod tests {
     #[test]
     fn random_tokens() {
         //Shamelessly stolen from https://github.com/abesto/jlox-rs/blob/main/src/scanner.rs
-        let source = "(){},.-+;*!23!=42.42/*.block.\n.comment.*/==<<==>/>=\"foo \nbar\"// this is a comment now";
+        let source = "(){},.-+;*!23!=42.42/*.block.\n.comment.*/
+    ==<<==>/>=\"foo \nbar\"// this is a comment now";
         let mut scanner = super::Scanner::new(source.to_string());
         let tokens = scanner.scan_tokens();
 

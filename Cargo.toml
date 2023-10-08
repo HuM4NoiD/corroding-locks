@@ -11,3 +11,4 @@ paste = "1.0.12"
 
 [features]
 DEBUG_TRACE_EXECUTION = []
+DEBUG_PRINT_CODE = []

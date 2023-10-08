@@ -23,7 +23,11 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn new() -> Chunk {
-        Chunk { code: vec![], lines: vec![], value_array: VmValueArray::new() }
+        Chunk {
+            code: vec![],
+            lines: vec![],
+            value_array: VmValueArray::new(),
+        }
     }
 
     pub fn write(&mut self, byte: u8, line: u32) {

@@ -55,7 +55,7 @@ pub enum TokenType {
 
 impl Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", stringify!(self))
+        write!(f, "{:?}", self)
     }
 }
 
@@ -74,6 +74,17 @@ impl Token {
             lexeme,
             literal,
             line,
+        }
+    }
+}
+
+impl Default for Token {
+    fn default() -> Self {
+        Token {
+            token_type: TokenType::Eof,
+            lexeme: "".to_string(),
+            literal: None,
+            line: 0,
         }
     }
 }

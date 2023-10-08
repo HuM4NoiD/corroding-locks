@@ -1,6 +1,8 @@
 use crate::{
     chunk::{Chunk, OpCode},
-    debug::disassemble_instruction, value::VmValue, compiler::compile
+    compiler::Parser,
+    debug::disassemble_instruction,
+    value::VmValue,
 };
 
 macro_rules! binary_op {
@@ -8,14 +10,14 @@ macro_rules! binary_op {
         let b = $self.pop().unwrap();
         let a = $self.pop().unwrap();
         let c = a $op b;
-        $self.push(c) 
+        $self.push(c)
     }}
 }
 
 pub enum InterpretError {
     CompileError,
-    RuntimeError
-} 
+    RuntimeError,
+}
 
 pub struct VM {
     stack: Vec<VmValue>,
@@ -24,7 +26,10 @@ pub struct VM {
 
 impl VM {
     pub fn new() -> VM {
-        VM { stack: vec![], top: 1 }
+        VM {
+            stack: vec![],
+            top: 1,
+        }
     }
 
     pub fn reset(&mut self) {
@@ -41,8 +46,14 @@ impl VM {
     }
 
     pub fn interpret(&mut self, source: String) -> Result<(), InterpretError> {
-        compile(source);
-        Ok(())
+        let mut chunk = Chunk::new();
+        let mut parser = Parser::new(source);
+        let compilation_result = parser.compile(&mut chunk);
+        if let Err(_) = compilation_result {
+            Err(InterpretError::CompileError)
+        } else {
+            self.run(&chunk)
+        }
     }
 
     pub fn run(&mut self, chunk: &Chunk) -> Result<(), InterpretError> {
@@ -65,7 +76,7 @@ impl VM {
                         let constant = chunk.value_array.values[value_index];
                         self.push(constant);
                         index = index + 1;
-                    },
+                    }
                     OC::OpAdd => binary_op!(self, +),
                     OC::OpSubtract => binary_op!(self, -),
                     OC::OpMultiply => binary_op!(self, *),
@@ -74,18 +85,17 @@ impl VM {
                         if let Some(value) = self.pop() {
                             self.push(-value);
                         }
-                    },
+                    }
                     OC::OpReturn => {
                         let value = self.pop();
                         println!("{:?}", value);
                         return Ok(());
-                    },
+                    }
                 }
             } else {
                 return Err(InterpretError::RuntimeError);
             };
-        };
+        }
         return Ok(());
     }
 }
-
