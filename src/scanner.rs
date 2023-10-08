@@ -192,7 +192,7 @@ impl Scanner {
         self.advance();
         let slice = &self.source[self.start + 1..self.current - 1];
         let value = Some(Value::String(slice.into_iter().collect()));
-        self.build_token_value(TokenType::String, value)
+        self.build_token_value(TokenType::String)
     }
 
     fn number(&mut self) -> Result<Token, ScanError> {
@@ -209,8 +209,7 @@ impl Scanner {
 
         let slice = &self.source[self.start..self.current];
         let num_str: String = slice.into_iter().collect();
-        let num_val = Some(Value::Number(num_str.parse::<f64>().unwrap()));
-        self.build_token_value(TokenType::Number, num_val)
+        self.build_token_value(TokenType::Number)
     }
 
     fn identifier_str(&mut self) -> String {
@@ -278,17 +277,16 @@ impl Scanner {
     }
 
     fn build_token(&mut self, token_type: TokenType) -> Result<Token, ScanError> {
-        self.build_token_value(token_type, None)
+        self.build_token_value(token_type)
     }
 
     fn build_token_value(
         &mut self,
         token_type: TokenType,
-        literal: Option<Value>,
     ) -> Result<Token, ScanError> {
         let slice = &self.source[self.start..self.current];
         let lexeme = slice.into_iter().collect();
-        let res = Result::Ok(Token::new(token_type, lexeme, literal, self.line));
+        let res = Result::Ok(Token::new(token_type, lexeme, self.line));
         //println!("Created token: {:?}", res);
         res
     }
