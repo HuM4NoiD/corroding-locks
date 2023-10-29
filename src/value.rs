@@ -1,12 +1,27 @@
 use std::fmt::{Debug, Display};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum Obj {
+    Str(String),
+}
+
+impl Display for Obj {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Str(s) => write!(f, "{}", &s)
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
-    // String(String),
+    Str(Box<String>),
 }
+
+
 
 impl Value {
     pub fn is_falsey(&self) -> bool {
@@ -14,6 +29,7 @@ impl Value {
             Self::Nil => true,
             Self::Boolean(b) => !b,
             Self::Number(_) => false,
+            Self::Str(_) => false,
         }
     }
 }
@@ -22,9 +38,9 @@ impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Nil => write!(f, "{}", "nil"),
-            // Value::String(s) => write!(f, "\"{}\"", s),
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Number(float) => write!(f, "{}", *float),
+            Value::Str(o) => std::fmt::Display::fmt(&o, f)
         }
     }
 }

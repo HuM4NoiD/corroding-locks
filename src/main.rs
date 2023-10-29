@@ -18,7 +18,6 @@ use std::{
     env, fs,
     io::{self, Write},
     process::ExitCode,
-    result,
 };
 
 use crate::{

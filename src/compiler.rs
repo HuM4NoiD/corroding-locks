@@ -3,7 +3,7 @@ use std::mem;
 use crate::{
     chunk::{Chunk, OpCode},
     scanner::Scanner,
-    token::{Token, TokenType}, debug::disassemble_chunk, value::Value,
+    token::{Token, TokenType}, debug::disassemble_chunk, value::{Value, Obj},
 };
 
 
@@ -151,7 +151,7 @@ impl ParseRule {
                 precedence: Precedence::None,
             },
             TokenType::String => Self {
-                prefix: None,
+                prefix: Some(Parser::string),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -304,6 +304,13 @@ impl Parser {
 
     fn number(&mut self, chunk: &mut Chunk) {
         let value = Value::Number(self.previous.lexeme.parse::<f64>().unwrap());
+        self.emit_constant(value, chunk);
+    }
+
+    fn string(&mut self, chunk: &mut Chunk) {
+        let str_len = self.previous.lexeme.len();
+        let string = &self.previous.lexeme[1..str_len - 1];
+        let value = Value::Str(Box::new(string.to_string()));
         self.emit_constant(value, chunk);
     }
 

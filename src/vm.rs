@@ -6,6 +6,26 @@ use crate::{
 };
 
 macro_rules! binary_op {
+    ($self:ident, +) => {{
+        let b = $self.pop().unwrap();
+        let a = $self.pop().unwrap();
+        match (a, b) {
+            (Value::Str(x), Value::Str(y)) => {
+                let mut c = String::new();
+                c.push_str(&x);
+                c.push_str(&y);
+                $self.push(Value::Str(Box::new(c)));
+            }
+            (Value::Number(x), Value::Number(y)) => {
+                let c = x + y;
+                $self.push(Value::Number(c));
+            }
+            _ => {
+                $self.runtime_error("Operands must be numbers.");
+                return Err(InterpretError::RuntimeError);
+            }
+        }
+    }};
     ($self:ident, $op:tt) => {{
         let b = $self.pop().unwrap();
         let a = $self.pop().unwrap();
