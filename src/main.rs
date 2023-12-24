@@ -13,6 +13,7 @@ pub mod token;
 pub mod value;
 #[macro_use]
 pub mod vm;
+pub mod obj;
 
 use std::{
     env, fs,

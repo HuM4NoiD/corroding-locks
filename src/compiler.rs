@@ -3,7 +3,10 @@ use std::mem;
 use crate::{
     chunk::{Chunk, OpCode},
     scanner::Scanner,
-    token::{Token, TokenType}, debug::disassemble_chunk, value::{Value, Obj},
+    token::{Token, TokenType},
+    debug::disassemble_chunk,
+    value::{Value},
+    obj::Obj,
 };
 
 
@@ -310,7 +313,7 @@ impl Parser {
     fn string(&mut self, chunk: &mut Chunk) {
         let str_len = self.previous.lexeme.len();
         let string = &self.previous.lexeme[1..str_len - 1];
-        let value = Value::Str(Box::new(string.to_string()));
+        let value = Value::Obj(Box::new(Obj::from(string.to_string())));
         self.emit_constant(value, chunk);
     }
 

@@ -1,24 +1,15 @@
 use std::fmt::{Debug, Display};
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum Obj {
-    Str(String),
-}
-
-impl Display for Obj {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Str(s) => write!(f, "{}", &s)
-        }
-    }
-}
+use crate::{
+    obj::Obj
+};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
-    Str(Box<String>),
+    Obj(Box<Obj>)
 }
 
 
@@ -29,7 +20,7 @@ impl Value {
             Self::Nil => true,
             Self::Boolean(b) => !b,
             Self::Number(_) => false,
-            Self::Str(_) => false,
+            Self::Obj(_) => false,
         }
     }
 }
@@ -40,7 +31,7 @@ impl Display for Value {
             Value::Nil => write!(f, "{}", "nil"),
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Number(float) => write!(f, "{}", *float),
-            Value::Str(o) => std::fmt::Display::fmt(&o, f)
+            Value::Obj(o) => std::fmt::Display::fmt(&o, f)
         }
     }
 }
