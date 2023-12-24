@@ -306,14 +306,14 @@ impl Parser {
     }
 
     fn number(&mut self, chunk: &mut Chunk) {
-        let value = Value::Number(self.previous.lexeme.parse::<f64>().unwrap());
+        let value = Value::from(self.previous.lexeme.parse::<f64>().unwrap());
         self.emit_constant(value, chunk);
     }
 
     fn string(&mut self, chunk: &mut Chunk) {
         let str_len = self.previous.lexeme.len();
         let string = &self.previous.lexeme[1..str_len - 1];
-        let value = Value::Obj(Box::new(Obj::from(string.to_string())));
+        let value = Value::from(Obj::from(string.to_string()));
         self.emit_constant(value, chunk);
     }
 

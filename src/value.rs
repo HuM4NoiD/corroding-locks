@@ -12,8 +12,6 @@ pub enum Value {
     Obj(Box<Obj>)
 }
 
-
-
 impl Value {
     pub fn is_falsey(&self) -> bool {
         match self {
@@ -22,6 +20,24 @@ impl Value {
             Self::Number(_) => false,
             Self::Obj(_) => false,
         }
+    }
+}
+
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Value::Boolean(value)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Value::Number(value)
+    }
+}
+
+impl From<Obj> for Value {
+    fn from(value: Obj) -> Self {
+        Value::Obj(Box::new(value))
     }
 }
 

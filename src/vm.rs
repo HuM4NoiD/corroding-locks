@@ -18,7 +18,7 @@ macro_rules! binary_op {
                         c.push_str(&p);
                         c.push_str(&q);
                         $self.push(Value::Obj(Box::new(Obj::from(c))));
-                    }
+                    },
                     _ => {
                         $self.runtime_error("Operands must be strings.");
                         return Err(InterpretError::RuntimeError);
@@ -41,7 +41,7 @@ macro_rules! binary_op {
         match (a, b) {
             (Value::Number(x), Value::Number(y)) => {
                 let c = x $op y;
-                $self.push(Value::Number(c));
+                $self.push(Value::from(c));
             }
             _ => {
                 $self.runtime_error("Operands must be numbers.");
@@ -55,7 +55,7 @@ macro_rules! compare {
     ($self:ident, $op:tt) => {{
         let b = $self.pop().unwrap();
         let a = $self.pop().unwrap();
-        $self.push(Value::Boolean(a $op b));
+        $self.push(Value::from(a $op b));
     }};
 }
 
@@ -129,12 +129,12 @@ impl VM {
                         self.ip = self.ip + 1;
                     }
                     OC::OpNil => self.push(Value::Nil),
-                    OC::OpTrue => self.push(Value::Boolean(true)),
-                    OC::OpFalse => self.push(Value::Boolean(false)),
+                    OC::OpTrue => self.push(Value::from(true)),
+                    OC::OpFalse => self.push(Value::from(false)),
                     OC::OpEqual => {
                         let b = self.pop();
                         let a = self.pop();
-                        self.push(Value::Boolean(b == a))
+                        self.push(Value::from(b == a))
                     },
                     OC::OpGreater => compare!(self, >),
                     OC::OpLess => compare!(self, <),
@@ -144,13 +144,13 @@ impl VM {
                     OC::OpDivide => binary_op!(self, /),
                     OC::OpNot => {
                         if let Some(b) = self.pop() {
-                            self.push(Value::Boolean(b.is_falsey()));
+                            self.push(Value::from(b.is_falsey()));
                         }
                     }
                     OC::OpNegate => {
                         if let Some(value) = self.pop() {
                             if let Value::Number(num) = value {
-                                self.push(Value::Number(-num));
+                                self.push(Value::from(-num));
                             } else {
                                 self.runtime_error("Operand must be a number.");
                                 return Err(InterpretError::RuntimeError);
