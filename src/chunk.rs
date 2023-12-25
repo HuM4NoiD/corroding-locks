@@ -1,6 +1,6 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::value::{ValueArray, Value};
+use crate::value::{Value, ValueArray};
 
 #[derive(IntoPrimitive, TryFromPrimitive, PartialEq, Eq)]
 #[repr(u8)]
@@ -9,6 +9,10 @@ pub enum OpCode {
     OpNil,
     OpTrue,
     OpFalse,
+    OpPop,
+    OpGetGlobal,
+    OpDefineGlobal,
+    OpSetGlobal,
     OpEqual,
     OpGreater,
     OpLess,
@@ -18,6 +22,7 @@ pub enum OpCode {
     OpDivide,
     OpNot,
     OpNegate,
+    OpPrint,
     OpReturn,
 }
 

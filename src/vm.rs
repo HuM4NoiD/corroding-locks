@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use crate::{
     chunk::{Chunk, OpCode},
     compiler::Parser,
     debug::disassemble_instruction,
-    value::Value,
     obj::Obj,
+    value::Value,
 };
 
 macro_rules! binary_op {
@@ -68,7 +70,8 @@ pub struct VM {
     stack: Vec<Value>,
     top: usize,
     ip: usize,
-    chunk: Chunk
+    chunk: Chunk,
+    globals: HashMap<String, Value>,
 }
 
 impl VM {
@@ -78,6 +81,7 @@ impl VM {
             top: 1,
             ip: 0,
             chunk: Chunk::new(),
+            globals: HashMap::new(),
         }
     }
 
@@ -96,6 +100,16 @@ impl VM {
 
     pub fn peek(&self, depth: usize) -> Option<&Value> {
         self.stack.get(depth)
+    }
+
+    fn read_byte(&mut self) -> u8 {
+        self.ip += 1;
+        return self.chunk.code[self.ip - 1];
+    }
+
+    fn read_constant(&mut self) -> Value {
+        let index = self.read_byte();
+        self.chunk.value_array.values[index as usize].clone()
     }
 
     pub fn interpret(&mut self, source: String) -> Result<(), InterpretError> {
@@ -131,11 +145,52 @@ impl VM {
                     OC::OpNil => self.push(Value::Nil),
                     OC::OpTrue => self.push(Value::from(true)),
                     OC::OpFalse => self.push(Value::from(false)),
+                    OC::OpPop => {
+                        self.pop();
+                    }
+                    OC::OpGetGlobal => {
+                        let constant: Value = self.read_constant();
+                        if let Value::Obj(a) = constant {
+                            if let Obj::Str(name) = *a {
+                                if !self.globals.contains_key(&name) {
+                                    self.runtime_error(&format!("Undefined variable '{}'", &name));
+                                    return Err(InterpretError::RuntimeError);
+                                }
+                                let value = self.globals.get(&name).unwrap();
+                                self.push(value.clone());
+                            }
+                        }
+                    }
+                    OC::OpDefineGlobal => {
+                        let constant: Value = self.read_constant();
+                        if let Value::Obj(a) = constant {
+                            if let Obj::Str(name) = *a {
+                                let value = self.pop();
+                                self.globals.insert(name.clone(), value.unwrap());
+                            }
+                        }
+                    }
+                    OC::OpSetGlobal => {
+                        let constant: Value = self.read_constant();
+                        if let Value::Obj(a) = constant {
+                            if let Obj::Str(name) = *a {
+                                let top = self.peek(0).unwrap().clone();
+                                let previous_value = self.globals.insert(name.clone(), top);
+                                // If previous value did not exist
+                                // i.e. the variable was not defined
+                                if previous_value.is_none() {
+                                    self.globals.remove(&name);
+                                    self.runtime_error(&format!("Undefined variable '{}'", &name));
+                                    return Err(InterpretError::RuntimeError);
+                                }
+                            }
+                        }
+                    }
                     OC::OpEqual => {
                         let b = self.pop();
                         let a = self.pop();
                         self.push(Value::from(b == a))
-                    },
+                    }
                     OC::OpGreater => compare!(self, >),
                     OC::OpLess => compare!(self, <),
                     OC::OpAdd => binary_op!(self, +),
@@ -157,9 +212,11 @@ impl VM {
                             }
                         }
                     }
-                    OC::OpReturn => {
+                    OC::OpPrint => {
                         let value = self.pop();
-                        println!("{:?}", value);
+                        println!("{}", value.unwrap());
+                    }
+                    OC::OpReturn => {
                         return Ok(());
                     }
                 }

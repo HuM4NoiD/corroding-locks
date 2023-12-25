@@ -276,10 +276,7 @@ impl Scanner {
         self.build_token_value(token_type)
     }
 
-    fn build_token_value(
-        &mut self,
-        token_type: TokenType,
-    ) -> Result<Token, ScanError> {
+    fn build_token_value(&mut self, token_type: TokenType) -> Result<Token, ScanError> {
         let slice = &self.source[self.start..self.current];
         let lexeme = slice.into_iter().collect();
         let res = Result::Ok(Token::new(token_type, lexeme, self.line));

@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Obj {
-    Str(String)
+    Str(String),
 }
 
 impl From<String> for Obj {
@@ -14,7 +14,7 @@ impl From<String> for Obj {
 impl Display for Obj {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Str(o) => write!(f, "Obj::Str({})", &o),
+            Self::Str(o) => write!(f, "{}", &o),
         }
     }
 }

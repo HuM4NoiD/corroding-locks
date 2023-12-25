@@ -1,15 +1,13 @@
 use std::fmt::{Debug, Display};
 
-use crate::{
-    obj::Obj
-};
+use crate::obj::Obj;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
-    Obj(Box<Obj>)
+    Obj(Box<Obj>),
 }
 
 impl Value {
@@ -47,7 +45,7 @@ impl Display for Value {
             Value::Nil => write!(f, "{}", "nil"),
             Value::Boolean(b) => write!(f, "{}", b),
             Value::Number(float) => write!(f, "{}", *float),
-            Value::Obj(o) => std::fmt::Display::fmt(&o, f)
+            Value::Obj(o) => std::fmt::Display::fmt(&o, f),
         }
     }
 }

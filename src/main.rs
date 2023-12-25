@@ -49,7 +49,7 @@ fn repl(vm: &mut VM) -> ExitCode {
         print!("> ");
         let _ = io::stdout().flush();
         let _ = stdin.read_line(&mut buffer);
-        println!("{}", &buffer);
+        // println!("{}", &buffer);
         let _ = vm.interpret(buffer);
     }
 }
