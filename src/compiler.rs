@@ -1,4 +1,4 @@
-use std::mem;
+use std::{mem, collections::HashMap, io::Write};
 
 use crate::{
     chunk::{Chunk, OpCode},
@@ -44,8 +44,8 @@ impl Precedence {
 }
 
 struct ParseRule {
-    prefix: Option<fn(&mut Parser, bool, &mut Chunk)>,
-    infix: Option<fn(&mut Parser, bool, &mut Chunk)>,
+    prefix: Option<fn(&mut Parser, bool, &mut ParserState)>,
+    infix: Option<fn(&mut Parser, bool, &mut ParserState)>,
     precedence: Precedence,
 }
 
@@ -259,6 +259,19 @@ pub struct Parser {
     panic_mode: bool,
 }
 
+type GlobIdentifierTable = HashMap<String, u8>;
+
+struct ParserState<'a> {
+    chunk: &'a mut Chunk,
+    global_idents: GlobIdentifierTable
+}
+
+impl<'a> ParserState<'a> {
+    fn new(chunk: &'a mut Chunk) -> Self {
+        ParserState { chunk: chunk, global_idents: HashMap::new() }
+    }
+}
+
 impl Parser {
     pub fn new(source: String) -> Parser {
         Parser {
@@ -286,8 +299,11 @@ impl Parser {
     pub fn compile(&mut self, chunk: &mut Chunk) -> Result<(), ()> {
         self.advance();
 
+        let mut global_identifier_table: GlobIdentifierTable = HashMap::new();
+        let mut parser_state = ParserState::new(chunk);
+
         while !self.match_(TokenType::Eof) {
-            self.declaration(chunk);
+            self.declaration(&mut parser_state);
         }
 
         self.consume(TokenType::Eof, "Expected end of expression");
@@ -304,34 +320,34 @@ impl Parser {
         }
     }
 
-    fn expression(&mut self, chunk: &mut Chunk) {
-        self.parse_precedence(Precedence::Assignment, chunk);
+    fn expression(&mut self, parser_state: &mut ParserState) {
+        self.parse_precedence(Precedence::Assignment, parser_state);
     }
 
-    fn var_declaration(&mut self, chunk: &mut Chunk) {
-        let global = self.parse_variable(chunk, "Expect variable name.");
+    fn var_declaration(&mut self, parser_state: &mut ParserState) {
+        let global = self.parse_variable(parser_state, "Expect variable name.");
         
         if self.match_(TokenType::Equal) {
-            self.expression(chunk);
+            self.expression(parser_state);
         } else {
-            self.emit_byte(OpCode::OpNil.into(), chunk);
+            self.emit_byte(OpCode::OpNil.into(), parser_state.chunk);
         }
 
         self.consume(TokenType::Semicolon, "Expect ';' after variable declaration.");
 
-        self.define_variable(global, chunk);
+        self.define_variable(global, parser_state.chunk);
     }
 
-    fn expression_statement(&mut self, chunk: &mut Chunk) {
-        self.expression(chunk);
+    fn expression_statement(&mut self, parser_state: &mut ParserState) {
+        self.expression(parser_state);
         self.consume(TokenType::Semicolon, "Expect ';' after expression");
-        self.emit_byte(OpCode::OpPop.into(), chunk);
+        self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
     }
 
-    fn print_statement(&mut self, chunk: &mut Chunk) {
-        self.expression(chunk);
+    fn print_statement(&mut self, parser_state: &mut ParserState) {
+        self.expression(parser_state);
         self.consume(TokenType::Semicolon, "Expect ';' after value");
-        self.emit_byte(OpCode::OpPrint.into(), chunk)
+        self.emit_byte(OpCode::OpPrint.into(), parser_state.chunk);
     }
 
     fn synchronize(&mut self) {
@@ -356,11 +372,11 @@ impl Parser {
         }
     }
 
-    fn declaration(&mut self, chunk: &mut Chunk) {
+    fn declaration(&mut self, parser_state: &mut ParserState) {
         if self.match_(TokenType::Var) {
-            self.var_declaration(chunk);
+            self.var_declaration(parser_state);
         } else {
-            self.statement(chunk);
+            self.statement(parser_state);
         }
 
         if self.panic_mode {
@@ -368,58 +384,58 @@ impl Parser {
         }
     }
 
-    fn statement(&mut self, chunk: &mut Chunk) {
+    fn statement(&mut self, parser_state: &mut ParserState) {
         if self.match_(TokenType::Print) {
-            self.print_statement(chunk);
+            self.print_statement(parser_state);
         } else {
-            self.expression_statement(chunk);
+            self.expression_statement(parser_state);
         }
     }
 
-    fn number(&mut self, can_assign: bool, chunk: &mut Chunk) {
+    fn number(&mut self, can_assign: bool, parser_state: &mut ParserState) {
         let value = Value::from(self.previous.lexeme.parse::<f64>().unwrap());
-        self.emit_constant(value, chunk);
+        self.emit_constant(value, parser_state.chunk);
     }
 
-    fn string(&mut self, can_assign: bool, chunk: &mut Chunk) {
+    fn string(&mut self, can_assign: bool, parser_state: &mut ParserState) {
         let str_len = self.previous.lexeme.len();
         let string = &self.previous.lexeme[1..str_len - 1];
         let value = Value::from(Obj::from(string.to_string()));
-        self.emit_constant(value, chunk);
+        self.emit_constant(value, parser_state.chunk);
     }
 
-    fn named_variable(&mut self, name: String, can_assign: bool, chunk: &mut Chunk) {
-        let arg = self.identifier_constant(name, chunk);
+    fn named_variable(&mut self, name: String, can_assign: bool, parser_state: &mut ParserState) {
+        let arg = self.identifier_constant(name, parser_state);
 
         if can_assign && self.match_(TokenType::Equal) {
-            self.expression(chunk);
-            self.emit_bytes(OpCode::OpSetGlobal.into(), arg, chunk);
+            self.expression(parser_state);
+            self.emit_bytes(OpCode::OpSetGlobal.into(), arg, parser_state.chunk);
         } else {
-            self.emit_bytes(OpCode::OpGetGlobal.into(), arg, chunk);
+            self.emit_bytes(OpCode::OpGetGlobal.into(), arg, parser_state.chunk);
         }
     }
 
-    fn variable(&mut self, can_assign: bool, chunk: &mut Chunk) {
+    fn variable(&mut self, can_assign: bool, parser_state: &mut ParserState) {
         let name = self.previous.lexeme.clone();
-        self.named_variable(name, can_assign, chunk);
+        self.named_variable(name, can_assign, parser_state);
     }
 
-    fn grouping(&mut self, can_assign: bool, chunk: &mut Chunk) {
-        self.expression(chunk);
+    fn grouping(&mut self, can_assign: bool, parser_state: &mut ParserState) {
+        self.expression(parser_state);
         self.consume(TokenType::RightParen, "Expect ')' after expression.");
     }
 
-    fn unary(&mut self, can_assign: bool, chunk: &mut Chunk) {
+    fn unary(&mut self, can_assign: bool, parser_state: &mut ParserState) {
         let operator_type = self.previous.token_type.clone();
-        self.parse_precedence(Precedence::Unary, chunk);
+        self.parse_precedence(Precedence::Unary, parser_state);
         match operator_type {
-            TokenType::Minus => self.emit_byte(OpCode::OpNegate.into(), chunk),
-            TokenType::Bang => self.emit_byte(OpCode::OpNot.into(), chunk),
+            TokenType::Minus => self.emit_byte(OpCode::OpNegate.into(), parser_state.chunk),
+            TokenType::Bang => self.emit_byte(OpCode::OpNot.into(), parser_state.chunk),
             _ => {}
         };
     }
 
-    fn parse_precedence(&mut self, precedence: Precedence, chunk: &mut Chunk) {
+    fn parse_precedence(&mut self, precedence: Precedence, parser_state: &mut ParserState) {
         self.advance();
         let parse_rule = ParseRule::get_rule(&self.previous.token_type);
         let prefix_rule_option = parse_rule.prefix;
@@ -431,14 +447,14 @@ impl Parser {
         let prefix_rule = prefix_rule_option.unwrap();
 
         let can_assign = precedence <= Precedence::Assignment;
-        prefix_rule(self, can_assign, chunk);
+        prefix_rule(self, can_assign, parser_state);
 
         while precedence <= ParseRule::get_rule(&self.current.token_type).precedence {
             self.advance();
             let infix_rule = ParseRule::get_rule(&self.previous.token_type)
                 .infix
                 .unwrap();
-            infix_rule(self, can_assign, chunk);
+            infix_rule(self, can_assign, parser_state);
         }
 
         if can_assign && self.match_(TokenType::Equal) {
@@ -446,10 +462,10 @@ impl Parser {
         }
     }
 
-    fn parse_variable(&mut self, chunk: &mut Chunk, error_message: &str) -> u8 {
+    fn parse_variable(&mut self, parser_state: &mut ParserState, error_message: &str) -> u8 {
         self.consume(TokenType::Identifier, error_message);
         let token_name = (&self.previous.lexeme).to_string();
-        let constant_index = self.identifier_constant(token_name, chunk);
+        let constant_index = self.identifier_constant(token_name, parser_state);
         return constant_index;
     }
 
@@ -457,41 +473,47 @@ impl Parser {
         self.emit_bytes(OpCode::OpDefineGlobal.into(), global, chunk);
     }
 
-    fn identifier_constant(&mut self, name: String, chunk: &mut Chunk) -> u8 {
-        return self.make_constant(Value::from(Obj::from(name)), chunk)
+    fn identifier_constant(&mut self, name: String, parser_state: &mut ParserState) -> u8 {
+        if parser_state.global_idents.contains_key(&name) {
+            return parser_state.global_idents.get(&name).unwrap().to_owned();
+        } else {
+            let ident_constant_offset = self.make_constant(Value::from(Obj::from(name.clone())), parser_state.chunk);
+            parser_state.global_idents.insert(name, ident_constant_offset);
+            ident_constant_offset
+        }
     }
 
-    fn binary(&mut self, can_assign: bool, chunk: &mut Chunk) {
+    fn binary(&mut self, can_assign: bool, parser_state: &mut ParserState) {
         let operator_type = self.previous.token_type.clone();
         let parse_rule = ParseRule::get_rule(&operator_type);
-        self.parse_precedence(parse_rule.precedence.greater(), chunk);
+        self.parse_precedence(parse_rule.precedence.greater(), parser_state);
 
         match operator_type {
             TokenType::BangEqual => {
-                self.emit_bytes(OpCode::OpEqual.into(), OpCode::OpNot.into(), chunk)
+                self.emit_bytes(OpCode::OpEqual.into(), OpCode::OpNot.into(), parser_state.chunk)
             }
-            TokenType::EqualEqual => self.emit_byte(OpCode::OpEqual.into(), chunk),
-            TokenType::Greater => self.emit_byte(OpCode::OpGreater.into(), chunk),
+            TokenType::EqualEqual => self.emit_byte(OpCode::OpEqual.into(), parser_state.chunk),
+            TokenType::Greater => self.emit_byte(OpCode::OpGreater.into(), parser_state.chunk),
             TokenType::GreaterEqual => {
-                self.emit_bytes(OpCode::OpLess.into(), OpCode::OpNot.into(), chunk)
+                self.emit_bytes(OpCode::OpLess.into(), OpCode::OpNot.into(), parser_state.chunk)
             }
-            TokenType::Less => self.emit_byte(OpCode::OpLess.into(), chunk),
+            TokenType::Less => self.emit_byte(OpCode::OpLess.into(), parser_state.chunk),
             TokenType::LessEqual => {
-                self.emit_bytes(OpCode::OpGreater.into(), OpCode::OpNot.into(), chunk)
+                self.emit_bytes(OpCode::OpGreater.into(), OpCode::OpNot.into(), parser_state.chunk)
             }
-            TokenType::Plus => self.emit_byte(OpCode::OpAdd.into(), chunk),
-            TokenType::Minus => self.emit_byte(OpCode::OpSubtract.into(), chunk),
-            TokenType::Star => self.emit_byte(OpCode::OpMultiply.into(), chunk),
-            TokenType::Slash => self.emit_byte(OpCode::OpDivide.into(), chunk),
+            TokenType::Plus => self.emit_byte(OpCode::OpAdd.into(), parser_state.chunk),
+            TokenType::Minus => self.emit_byte(OpCode::OpSubtract.into(), parser_state.chunk),
+            TokenType::Star => self.emit_byte(OpCode::OpMultiply.into(), parser_state.chunk),
+            TokenType::Slash => self.emit_byte(OpCode::OpDivide.into(), parser_state.chunk),
             _ => {}
         };
     }
 
-    fn literal(&mut self, can_assign: bool, chunk: &mut Chunk) {
+    fn literal(&mut self, can_assign: bool, parser_state: &mut ParserState) {
         match self.previous.token_type {
-            TokenType::Nil => self.emit_byte(OpCode::OpNil.into(), chunk),
-            TokenType::True => self.emit_byte(OpCode::OpTrue.into(), chunk),
-            TokenType::False => self.emit_byte(OpCode::OpFalse.into(), chunk),
+            TokenType::Nil => self.emit_byte(OpCode::OpNil.into(), parser_state.chunk),
+            TokenType::True => self.emit_byte(OpCode::OpTrue.into(), parser_state.chunk),
+            TokenType::False => self.emit_byte(OpCode::OpFalse.into(), parser_state.chunk),
             _ => {}
         };
     }
