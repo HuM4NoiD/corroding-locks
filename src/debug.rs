@@ -28,6 +28,8 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
             OC::OpTrue => simple_instruction("OpTrue", offset),
             OC::OpFalse => simple_instruction("OpFalse", offset),
             OC::OpPop => simple_instruction("OpPop", offset),
+            OC::OpGetLocal => byte_instruction("OpGetLocal", chunk, offset),
+            OC::OpSetLocal => byte_instruction("OpSetLocal", chunk, offset),
             OC::OpGetGlobal => constant_instruction("OpGetGlobal", chunk, offset),
             OC::OpDefineGlobal => constant_instruction("OpDefineGlobal", chunk, offset),
             OC::OpSetGlobal => constant_instruction("OpSetGlobal", chunk, offset),
@@ -52,6 +54,12 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
 pub fn simple_instruction(name: &str, offset: usize) -> usize {
     println!("{}", name);
     offset + 1
+}
+
+pub fn byte_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
+    let slot = chunk.code[offset + 1];
+    println!("{} {:4}", name, slot);
+    return offset + 2;
 }
 
 pub fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {

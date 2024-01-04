@@ -148,6 +148,14 @@ impl VM {
                     OC::OpPop => {
                         self.pop();
                     }
+                    OC::OpGetLocal => {
+                        let slot = self.read_byte();
+                        self.push(self.stack[slot as usize].clone());
+                    }
+                    OC::OpSetLocal => {
+                        let slot = self.read_byte();
+                        self.stack[slot as usize] = self.peek(0).unwrap().clone();
+                    }
                     OC::OpGetGlobal => {
                         let constant: Value = self.read_constant();
                         if let Value::Obj(a) = constant {
