@@ -292,7 +292,7 @@ impl Compiler {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Local {
     name: String,
     depth: u8,
@@ -456,7 +456,7 @@ impl Parser {
     fn named_variable(&mut self, name: String, can_assign: bool, parser_state: &mut ParserState) {
         let mut arg = self.resolve_local(&name, &parser_state.current);
 
-        let (get_op, set_op): (u8, u8) = if arg == u8::MAX {
+        let (get_op, set_op): (u8, u8) = if arg != u8::MAX {
             (OpCode::OpGetLocal.into(), OpCode::OpSetLocal.into())
         } else {
             arg = self.identifier_constant(name, parser_state);
