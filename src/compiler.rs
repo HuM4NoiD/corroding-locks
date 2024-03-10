@@ -362,7 +362,7 @@ impl Parser {
     }
 
     fn block(&mut self, parser_state: &mut ParserState) {
-        while self.check(TokenType::RightBrace) && !self.check(TokenType::Eof) {
+        while !self.check(TokenType::RightBrace) && !self.check(TokenType::Eof) {
             self.declaration(parser_state);
         }
 
@@ -533,7 +533,7 @@ impl Parser {
 
     fn mark_initialized(&self, parser_state: &mut ParserState) {
         let local_count = parser_state.current.locals.len();
-        parser_state.current.locals[local_count].depth = parser_state.current.scope_depth;
+        parser_state.current.locals[local_count - 1].depth = parser_state.current.scope_depth;
     }
 
     fn define_variable(&mut self, global: u8, parser_state: &mut ParserState) {
