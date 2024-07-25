@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, usize};
 
 use crate::{
     chunk::{Chunk, OpCode},
@@ -112,6 +112,11 @@ impl VM {
         self.chunk.value_array.values[index as usize].clone()
     }
 
+    fn read_two_bytes(&mut self) -> u16 {
+        self.ip += 2;
+        return ((self.chunk.code[self.ip - 2] as u16) << 8) | self.chunk.code[self.ip - 1] as u16
+    }
+
     pub fn interpret(&mut self, source: String) -> Result<(), InterpretError> {
         let mut parser = Parser::new(source);
         let compilation_result = parser.compile(&mut self.chunk);
@@ -223,6 +228,25 @@ impl VM {
                     OC::OpPrint => {
                         let value = self.pop();
                         println!("{}", value.unwrap());
+                    }
+                    OC::OpJump => {
+                        let offset = self.read_two_bytes();
+                        self.ip += offset as usize;
+                    }
+                    OC::OpJumpIfFalse => {
+                        let offset: u16 = self.read_two_bytes();
+                        let top_value = self.peek(0);
+                        if top_value.is_none() {
+                            self.runtime_error("Stack should not be empty but is empty.");
+                            return Err(InterpretError::RuntimeError);
+                        }
+                        if top_value.unwrap().is_falsey() {
+                            self.ip += offset as usize;
+                        }
+                    }
+                    OC::OpLoop => {
+                        let offset = self.read_two_bytes();
+                        self.ip -= offset as usize;
                     }
                     OC::OpReturn => {
                         return Ok(());

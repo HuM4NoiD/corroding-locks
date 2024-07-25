@@ -164,8 +164,8 @@ impl ParseRule {
             },
             TokenType::And => Self {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Parser::and_),
+                precedence: Precedence::And,
             },
             TokenType::Class => Self {
                 prefix: None,
@@ -204,8 +204,8 @@ impl ParseRule {
             },
             TokenType::Or => Self {
                 prefix: None,
-                infix: None,
-                precedence: Precedence::None,
+                infix: Some(Parser::or_),
+                precedence: Precedence::Or,
             },
             TokenType::Print => Self {
                 prefix: None,
@@ -389,10 +389,99 @@ impl Parser {
         self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
     }
 
+    fn for_statement(&mut self, parser_state: &mut ParserState) {
+        self.begin_scope(parser_state);
+        self.consume(TokenType::LeftParen, "Expect '(' after for.");
+        if self.match_(TokenType::Semicolon) {
+            // No initializer
+        } else if self.match_(TokenType::Var) {
+            self.var_declaration(parser_state);
+        } else {
+            self.expression_statement(parser_state);
+        }
+        
+        let mut loop_start = parser_state.chunk.code.len();
+        let mut exit_jump: usize = usize::MAX;
+        if !self.match_(TokenType::Semicolon) {
+            self.expression(parser_state);
+            self.consume(TokenType::Semicolon, "Expect ';' after loop condition");
+
+            exit_jump = self.emit_jump(OpCode::OpJumpIfFalse.into(), parser_state);
+            self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
+        }
+
+        if !self.match_(TokenType::RightParen) {
+            let body_jump = self.emit_jump(OpCode::OpJump.into(), parser_state);
+            let increment_start = parser_state.chunk.code.len();
+            self.expression(parser_state);
+            self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
+            self.consume(TokenType::RightParen, "Expect ')' after for clauses.");
+
+            self.emit_loop(loop_start, parser_state.chunk);
+            loop_start = increment_start;
+            self.patch_jump(body_jump, parser_state);
+        }
+
+        self.statement(parser_state);
+        self.emit_loop(loop_start, parser_state.chunk);
+        
+        if exit_jump != usize::MAX {
+            self.patch_jump(exit_jump, parser_state);
+            self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
+        }
+
+        self.end_scope(parser_state);
+    }
+
+    fn if_statement(&mut self, parser_state: &mut ParserState) {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'if'.");
+        self.expression(parser_state);
+        self.consume(TokenType::RightParen, "Expect ')' after condition.");
+
+        // write the jump instruction
+        // Get the offset for the jump location
+        let then_jump = self.emit_jump(OpCode::OpJumpIfFalse.into(), parser_state);
+        // the net effect of a statement is 0 change in vm stack height
+        // so pop the expression result in if
+        self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
+        // write the `then` block bytecode
+        self.statement(parser_state);
+
+        // There needs to be a jump after then block
+        let else_jump = self.emit_jump(OpCode::OpJump.into(), parser_state);
+
+        // go back to the offset recorded early and write the jump location
+        self.patch_jump(then_jump, parser_state);
+        // pop the expression result off of the stack for else as well
+        self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
+
+        // continue with the else block
+        if self.match_(TokenType::Else) {
+            self.statement(parser_state);
+        }
+        // write the else block bytecode.
+        self.patch_jump(else_jump, parser_state);
+    }
+
     fn print_statement(&mut self, parser_state: &mut ParserState) {
         self.expression(parser_state);
         self.consume(TokenType::Semicolon, "Expect ';' after value");
         self.emit_byte(OpCode::OpPrint.into(), parser_state.chunk);
+    }
+
+    fn while_statement(&mut self, parser_state: &mut ParserState) {
+        let loop_start = parser_state.chunk.code.len();
+        self.consume(TokenType::LeftParen, "Expect '(' after 'while'.");
+        self.expression(parser_state);
+        self.consume(TokenType::RightParen, "Expect ')' after condition.");
+
+        let exit_jump = self.emit_jump(OpCode::OpJumpIfFalse.into(), parser_state);
+        self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
+        self.statement(parser_state);
+        self.emit_loop(loop_start, parser_state.chunk);
+
+        self.patch_jump(exit_jump, parser_state);
+        self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
     }
 
     fn synchronize(&mut self) {
@@ -432,6 +521,12 @@ impl Parser {
     fn statement(&mut self, parser_state: &mut ParserState) {
         if self.match_(TokenType::Print) {
             self.print_statement(parser_state);
+        } else if self.match_(TokenType::For) {
+            self.for_statement(parser_state);
+        } else if self.match_(TokenType::If) {
+            self.if_statement(parser_state);
+        } else if self.match_(TokenType::While) {
+            self.while_statement(parser_state);
         } else if self.match_(TokenType::LeftBrace) {
             self.begin_scope(parser_state);
             self.block(parser_state);
@@ -444,6 +539,17 @@ impl Parser {
     fn number(&mut self, can_assign: bool, parser_state: &mut ParserState) {
         let value = Value::from(self.previous.lexeme.parse::<f64>().unwrap());
         self.emit_constant(value, parser_state.chunk);
+    }
+
+    fn or_(&mut self, can_assign: bool, parser_state: &mut ParserState) {
+        let else_jump = self.emit_jump(OpCode::OpJumpIfFalse.into(), parser_state);
+        let end_jump = self.emit_jump(OpCode::OpJump.into(), parser_state);
+
+        self.patch_jump(else_jump, parser_state);
+        self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
+
+        self.parse_precedence(Precedence::Or, parser_state);
+        self.patch_jump(end_jump, parser_state);
     }
 
     fn string(&mut self, can_assign: bool, parser_state: &mut ParserState) {
@@ -544,6 +650,15 @@ impl Parser {
         self.emit_bytes(OpCode::OpDefineGlobal.into(), global, parser_state.chunk);
     }
 
+    fn and_(&mut self, can_assign: bool, parser_state: &mut ParserState) {
+        let end_jump = self.emit_jump(OpCode::OpJumpIfFalse.into(), parser_state);
+
+        self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
+        self.parse_precedence(Precedence::And, parser_state);
+
+        self.patch_jump(end_jump, parser_state);
+    }
+
     fn identifier_constant(&mut self, name: String, parser_state: &mut ParserState) -> u8 {
         if parser_state.global_idents.contains_key(&name) {
             return parser_state.global_idents.get(&name).unwrap().to_owned();
@@ -638,9 +753,11 @@ impl Parser {
     fn end_scope(&mut self, parser_state: &mut ParserState) {
         parser_state.current.scope_depth -= 1;
 
-        while !parser_state.current.locals.is_empty() {
-            parser_state.current.locals.pop();
+        while parser_state.current.locals.len() > 0 
+            && parser_state.current.locals[parser_state.current.locals.len() - 1].depth > parser_state.current.scope_depth 
+        {
             self.emit_byte(OpCode::OpPop.into(), parser_state.chunk);
+            parser_state.current.locals.pop();
         }
     }
 
@@ -651,6 +768,20 @@ impl Parser {
     fn emit_constant(&mut self, constant: Value, chunk: &mut Chunk) {
         let constant_index = self.make_constant(constant, chunk);
         self.emit_bytes(OpCode::OpConstant.into(), constant_index, chunk)
+    }
+
+    fn patch_jump(&mut self, offset: usize, parser_state: &mut ParserState) {
+        let jump = parser_state.chunk.len() - offset - 2;
+
+        if jump > u16::MAX.into() {
+            self.error("Too much code to jump over.");
+        }
+
+        // This means that out of the 16 bits of the jump offset
+        // Most significant 8 bits are stored at `offset`
+        parser_state.chunk.code[offset] = ((jump >> 8) & 0xff) as u8;
+        // Least significant 8 bits are stored at `offset + 1`
+        parser_state.chunk.code[offset + 1] = (jump & 0xff) as u8;
     }
 
     fn make_constant(&mut self, constant: Value, chunk: &mut Chunk) -> u8 {
@@ -665,6 +796,29 @@ impl Parser {
     fn emit_bytes(&self, byte1: u8, byte2: u8, chunk: &mut Chunk) {
         chunk.write(byte1, self.current.line);
         chunk.write(byte2, self.current.line);
+    }
+
+    fn emit_loop(&mut self, loop_start: usize, chunk: &mut Chunk) {
+        self.emit_byte(OpCode::OpLoop.into(), chunk);
+
+        let offset = chunk.code.len() - loop_start + 2;
+        if offset > u16::MAX.into() {
+            self.error("Loop body too large.");
+        }
+
+        let offset_16 = offset as u16;
+
+        self.emit_byte(((offset_16 >> 8) & 0xff) as u8, chunk);
+        self.emit_byte((offset_16 & 0xff) as u8, chunk)
+    }
+
+    fn emit_jump(&mut self, instruction: u8, parser_state: &mut ParserState) -> usize {
+        self.emit_byte(instruction, parser_state.chunk);
+        // This means that 16 bits are allocated for the jump
+        // i.e. you can stuff 65535 bytes of bytecode in the then block
+        self.emit_byte(0xff, parser_state.chunk);
+        self.emit_byte(0xff, parser_state.chunk);
+        return parser_state.chunk.len() - 2;
     }
 
     fn emit_return(&mut self, chunk: &mut Chunk) {

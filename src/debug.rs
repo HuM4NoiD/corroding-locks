@@ -43,6 +43,9 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
             OC::OpNot => simple_instruction("OpNot", offset),
             OC::OpNegate => simple_instruction("OpNegate", offset),
             OC::OpPrint => simple_instruction("OpPrint", offset),
+            OC::OpJump => jump_instruction("OpJump", 1, chunk, offset),
+            OC::OpJumpIfFalse => jump_instruction("OpJumpIfFalse", 1, chunk, offset),
+            OC::OpLoop => jump_instruction("OpLoop", -1, chunk, offset),
             OC::OpReturn => simple_instruction("OpReturn", offset),
         }
     } else {
@@ -60,6 +63,17 @@ pub fn byte_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     let slot = chunk.code[offset + 1];
     println!("{} {:4}", name, slot);
     return offset + 2;
+}
+
+pub fn jump_instruction(name: &str, sign: i8, chunk: &Chunk, offset: usize) -> usize {
+    let jump = (((chunk.code[offset + 1] as u16) << 8) | chunk.code[offset + 2] as u16) as usize;
+    let target = if sign > 0 {
+        offset + 3 + jump
+    } else {
+        offset + 3 - jump
+    };
+    println!("{} {:4} -> {}", name, offset, target);
+    return offset + 3;
 }
 
 pub fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
