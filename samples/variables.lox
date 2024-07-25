@@ -1,0 +1,7 @@
+var global = 31;
+global = global + 13;
+
+{
+    var local = 21;
+    local = local + 12;
+}
