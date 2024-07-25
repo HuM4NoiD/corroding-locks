@@ -99,7 +99,7 @@ impl VM {
     }
 
     pub fn peek(&self, depth: usize) -> Option<&Value> {
-        self.stack.get(depth)
+        self.stack.get(self.top - 1 - depth)
     }
 
     fn read_byte(&mut self) -> u8 {
